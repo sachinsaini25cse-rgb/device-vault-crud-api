@@ -1,0 +1,711 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DeviceVault — University Lab Equipment & Hardware Loan Tracker</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- ===================================================================== -->
+  <!-- Top Header Bar with Live Summary Stat Pills                           -->
+  <!-- ===================================================================== -->
+  <header class="header-bar">
+    <div class="header-container">
+      <div class="brand-section">
+        <div class="brand-icon">⚡</div>
+        <div class="brand-info">
+          <h1>DeviceVault</h1>
+          <p>University Lab Equipment & Hardware Loan Tracker</p>
+        </div>
+      </div>
+
+      <!-- Live Summary Statistics Pills -->
+      <div class="stats-group">
+        <div class="stat-pill">
+          <span>📦 Total Equipment:</span>
+          <strong id="stat-total">0</strong>
+        </div>
+        <div class="stat-pill pill-available">
+          <span>🟢 Available in Lab:</span>
+          <strong id="stat-available">0</strong>
+        </div>
+        <div class="stat-pill pill-issued">
+          <span>🟡 Currently Issued:</span>
+          <strong id="stat-issued">0</strong>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- ===================================================================== -->
+  <!-- Toast Notification Container                                          -->
+  <!-- ===================================================================== -->
+  <div id="toast-container"></div>
+
+  <!-- ===================================================================== -->
+  <!-- Main 2-Column Split Layout                                            -->
+  <!-- ===================================================================== -->
+  <main class="main-wrapper">
+    <div class="split-layout">
+
+      <!-- LEFT COLUMN: Add / Edit Equipment Form -->
+      <section class="card">
+        <div class="card-header">
+          <div>
+            <h2 class="card-title" id="form-card-title">
+              <span>➕</span> Register Equipment
+            </h2>
+            <p class="card-subtitle" id="form-card-subtitle">
+              Add new hardware to the central university inventory
+            </p>
+          </div>
+        </div>
+
+        <form id="device-form">
+          <!-- Hidden ID input for Edit Mode -->
+          <input type="hidden" id="device-id" value="">
+
+          <!-- Device Name / Book Title -->
+          <div class="form-group">
+            <label class="form-label" for="device-name">
+              Device Name / Hardware Title <span class="required-star">*</span>
+            </label>
+            <input 
+              type="text" 
+              id="device-name" 
+              class="form-input" 
+              placeholder="e.g. Raspberry Pi 4 Model B (4GB)" 
+              required
+            >
+            <p class="form-help">Enter the official hardware model or book title</p>
+          </div>
+
+          <!-- Asset Tag / Manufacturer / Author -->
+          <div class="form-group">
+            <label class="form-label" for="asset-tag">
+              Lab Asset Tag / Manufacturer <span class="required-star">*</span>
+            </label>
+            <input 
+              type="text" 
+              id="asset-tag" 
+              class="form-input" 
+              placeholder="e.g. RP-LAB-042 or Raspberry Pi Org" 
+              required
+            >
+            <p class="form-help">Unique lab asset code, manufacturer, or author</p>
+          </div>
+
+          <!-- Category / Genre -->
+          <div class="form-group">
+            <label class="form-label" for="device-category">
+              Hardware Category <span class="required-star">*</span>
+            </label>
+            <select id="device-category" class="form-select" required>
+              <option value="Microcontrollers & IoT">Microcontrollers & IoT</option>
+              <option value="Sensors & Robotics">Sensors & Robotics</option>
+              <option value="Testing & Instruments">Testing & Instruments</option>
+              <option value="AI & Compute Gear">AI & Compute Gear</option>
+            </select>
+          </div>
+
+          <!-- Student Roll Number -->
+          <div class="form-group">
+            <label class="form-label" for="student-roll">
+              Student Roll Number
+            </label>
+            <input 
+              type="text" 
+              id="student-roll" 
+              class="form-input" 
+              placeholder="e.g. 21BCSE104 (or 'None' if in lab)" 
+              value="None"
+            >
+            <p class="form-help">Assign to student if issuing immediately</p>
+          </div>
+
+          <!-- Initial Status -->
+          <div class="form-group">
+            <label class="form-label" for="device-status">
+              Current Status
+            </label>
+            <select id="device-status" class="form-select">
+              <option value="Available">Available (In Lab Shelf)</option>
+              <option value="Issued">Issued (With Student)</option>
+            </select>
+          </div>
+
+          <!-- Action Buttons -->
+          <div class="form-actions">
+            <button type="submit" id="submit-btn" class="btn btn-primary">
+              <span id="btn-icon">💾</span> <span id="btn-text">Add to Inventory</span>
+            </button>
+            <button type="button" id="cancel-edit-btn" class="btn btn-secondary" style="display: none;">
+              ✕ Cancel Edit
+            </button>
+          </div>
+        </form>
+
+        <!-- Viva Demo Data Quick Seed -->
+        <div class="seed-box">
+          <p>💡 University Evaluation Quick Demo</p>
+          <button type="button" id="seed-demo-btn" class="btn btn-secondary btn-sm" style="width: 100%;">
+            ⚡ Seed Sample Lab Equipment
+          </button>
+        </div>
+      </section>
+
+      <!-- RIGHT COLUMN: Live Catalog Table -->
+      <section class="card">
+        <div class="card-header">
+          <div>
+            <h2 class="card-title">
+              <span>📋</span> Live Lab Inventory Catalog
+            </h2>
+            <p class="card-subtitle">
+              Real-time MongoDB Atlas records with inline Issue/Return (PUT) & Delete operations
+            </p>
+          </div>
+          <button id="refresh-btn" class="btn btn-secondary btn-sm" title="Refresh records from MongoDB">
+            🔄 Refresh
+          </button>
+        </div>
+
+        <!-- Filter & Search Controls -->
+        <div class="catalog-controls">
+          <div class="search-box">
+            <span class="search-icon">🔍</span>
+            <input type="text" id="search-input" placeholder="Search by device name or asset tag...">
+          </div>
+
+          <div class="filter-group">
+            <select id="filter-status" class="filter-select">
+              <option value="ALL">All Statuses</option>
+              <option value="Available">Available</option>
+              <option value="Issued">Issued</option>
+            </select>
+
+            <select id="filter-category" class="filter-select">
+              <option value="ALL">All Categories</option>
+              <option value="Microcontrollers & IoT">Microcontrollers & IoT</option>
+              <option value="Sensors & Robotics">Sensors & Robotics</option>
+              <option value="Testing & Instruments">Testing & Instruments</option>
+              <option value="AI & Compute Gear">AI & Compute Gear</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Catalog Table -->
+        <div class="table-responsive">
+          <table class="vault-table" id="inventory-table">
+            <thead>
+              <tr>
+                <th>Hardware / Device</th>
+                <th>Category</th>
+                <th>Status</th>
+                <th>Assigned Student</th>
+                <th>Registered</th>
+                <th style="text-align: right;">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="table-body">
+              <!-- Dynamically populated via fetch() -->
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Empty State Container -->
+        <div id="empty-state" class="empty-state" style="display: none;">
+          <div class="empty-icon">📂</div>
+          <h3>No Equipment Records Found</h3>
+          <p>Your lab inventory is currently empty or no items match your search filter. Use the form on the left or seed sample records to get started!</p>
+        </div>
+      </section>
+
+    </div>
+  </main>
+
+  <!-- ===================================================================== -->
+  <!-- Modal: Quick Issue Equipment to Student                              -->
+  <!-- ===================================================================== -->
+  <div id="issue-modal" class="modal-overlay">
+    <div class="modal-content">
+      <h3 class="modal-title">🏷️ Issue Equipment</h3>
+      <p style="font-size: 0.85rem; color: #6B7280; margin-bottom: 1rem;" id="modal-device-desc">
+        Assign hardware to a student
+      </p>
+      
+      <input type="hidden" id="modal-device-id">
+      
+      <div class="form-group">
+        <label class="form-label" for="modal-roll-input">
+          Student Roll Number <span class="required-star">*</span>
+        </label>
+        <input 
+          type="text" 
+          id="modal-roll-input" 
+          class="form-input" 
+          placeholder="e.g. 21BCSE104 or 2026-CS-088"
+          required
+        >
+      </div>
+
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" onclick="closeIssueModal()">Cancel</button>
+        <button type="button" class="btn btn-primary" onclick="submitQuickIssue()">Confirm Issue</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <footer class="footer-bar">
+    <p>DeviceVault — University Evaluation Project | Built with Node.js, Express.js, MongoDB Atlas & Pure HTML/CSS</p>
+  </footer>
+
+  <!-- ===================================================================== -->
+  <!-- Minimal Inline Vanilla JavaScript API Integrations                    -->
+  <!-- ===================================================================== -->
+  <script>
+    // State management
+    let devicesCache = [];
+    const API_BASE = '/api/devices';
+
+    // DOM Elements
+    const form = document.getElementById('device-form');
+    const deviceIdInput = document.getElementById('device-id');
+    const deviceNameInput = document.getElementById('device-name');
+    const assetTagInput = document.getElementById('asset-tag');
+    const categoryInput = document.getElementById('device-category');
+    const studentRollInput = document.getElementById('student-roll');
+    const statusInput = document.getElementById('device-status');
+    const submitBtn = document.getElementById('submit-btn');
+    const btnText = document.getElementById('btn-text');
+    const cancelEditBtn = document.getElementById('cancel-edit-btn');
+    const formTitle = document.getElementById('form-card-title');
+    const formSubtitle = document.getElementById('form-card-subtitle');
+
+    const tableBody = document.getElementById('table-body');
+    const emptyState = document.getElementById('empty-state');
+    const searchInput = document.getElementById('search-input');
+    const filterStatus = document.getElementById('filter-status');
+    const filterCategory = document.getElementById('filter-category');
+
+    const statTotal = document.getElementById('stat-total');
+    const statAvailable = document.getElementById('stat-available');
+    const statIssued = document.getElementById('stat-issued');
+
+    const issueModal = document.getElementById('issue-modal');
+    const modalDeviceId = document.getElementById('modal-device-id');
+    const modalDeviceDesc = document.getElementById('modal-device-desc');
+    const modalRollInput = document.getElementById('modal-roll-input');
+
+    // ========================================================================
+    // Toast Notification Utility
+    // ========================================================================
+    function showToast(message, type = 'success') {
+      const container = document.getElementById('toast-container');
+      const toast = document.createElement('div');
+      toast.className = `toast toast-${type}`;
+      
+      const icon = type === 'success' ? '✅' : type === 'error' ? '❌' : 'ℹ️';
+      toast.innerHTML = `<span>${icon}</span> <span>${message}</span>`;
+      
+      container.appendChild(toast);
+      setTimeout(() => {
+        toast.style.opacity = '0';
+        toast.style.transform = 'translateY(10px)';
+        setTimeout(() => toast.remove(), 300);
+      }, 3500);
+    }
+
+    // ========================================================================
+    // 1. READ ALL (GET /api/devices)
+    // ========================================================================
+    async function fetchDevices() {
+      try {
+        const response = await fetch(API_BASE);
+        const result = await response.json();
+
+        if (result.success && Array.isArray(result.data)) {
+          devicesCache = result.data;
+          renderCatalog();
+          updateStats();
+        } else {
+          showToast(result.message || 'Failed to load records from MongoDB.', 'error');
+        }
+      } catch (err) {
+        console.error('Fetch error:', err);
+        showToast('Database connection error. Check MongoDB Atlas URI.', 'error');
+      }
+    }
+
+    // ========================================================================
+    // Render Catalog Table with Filter & Search Support
+    // ========================================================================
+    function renderCatalog() {
+      const searchTerm = searchInput.value.trim().toLowerCase();
+      const statusFilter = filterStatus.value;
+      const categoryFilter = filterCategory.value;
+
+      const filtered = devicesCache.filter(item => {
+        const nameMatch = (item.deviceName || item.bookTitle || '').toLowerCase().includes(searchTerm);
+        const tagMatch = (item.assetTag || item.author || '').toLowerCase().includes(searchTerm);
+        const rollMatch = (item.studentRollNo || '').toLowerCase().includes(searchTerm);
+        const searchMatches = nameMatch || tagMatch || rollMatch;
+
+        const statusMatches = (statusFilter === 'ALL') || (item.status === statusFilter);
+        const categoryMatches = (categoryFilter === 'ALL') || (item.category === categoryFilter || item.genre === categoryFilter);
+
+        return searchMatches && statusMatches && categoryMatches;
+      });
+
+      tableBody.innerHTML = '';
+
+      if (filtered.length === 0) {
+        emptyState.style.display = 'block';
+        return;
+      }
+
+      emptyState.style.display = 'none';
+
+      filtered.forEach(item => {
+        const tr = document.createElement('tr');
+        const isIssued = item.status === 'Issued';
+        const formattedDate = item.createdAt 
+          ? new Date(item.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+          : '—';
+
+        tr.innerHTML = `
+          <td>
+            <div class="device-cell">
+              <span class="device-name">${escapeHTML(item.deviceName || item.bookTitle)}</span>
+              <span class="device-tag">Tag: ${escapeHTML(item.assetTag || item.author)}</span>
+            </div>
+          </td>
+          <td>
+            <span class="category-tag">${escapeHTML(item.category || item.genre || 'General')}</span>
+          </td>
+          <td>
+            <span class="status-badge ${isIssued ? 'issued' : 'available'}">
+              <span class="status-dot"></span>
+              ${item.status}
+            </span>
+          </td>
+          <td>
+            <span class="roll-badge ${isIssued ? 'active-roll' : ''}">
+              ${escapeHTML(item.studentRollNo || 'None')}
+            </span>
+          </td>
+          <td style="font-size: 0.78rem; color: #6B7280;">
+            ${formattedDate}
+          </td>
+          <td style="text-align: right;">
+            <div class="action-buttons" style="justify-content: flex-end;">
+              ${isIssued 
+                ? `<button class="btn btn-outline-green btn-sm" onclick="returnDevice('${item._id}')" title="Return to lab shelf">
+                    📥 Return
+                   </button>`
+                : `<button class="btn btn-outline-amber btn-sm" onclick="openIssueModal('${item._id}', '${escapeHTML(item.deviceName || item.bookTitle)}')">
+                    🏷️ Issue
+                   </button>`
+              }
+              <button class="btn btn-secondary btn-sm" onclick="editDevice('${item._id}')" title="Edit details">
+                ✏️
+              </button>
+              <button class="btn btn-danger btn-sm" onclick="deleteDevice('${item._id}', '${escapeHTML(item.deviceName || item.bookTitle)}')" title="Delete from vault">
+                🗑️
+              </button>
+            </div>
+          </td>
+        `;
+        tableBody.appendChild(tr);
+      });
+    }
+
+    // ========================================================================
+    // Update Header Summary Stat Pills
+    // ========================================================================
+    function updateStats() {
+      const total = devicesCache.length;
+      const available = devicesCache.filter(d => d.status === 'Available').length;
+      const issued = devicesCache.filter(d => d.status === 'Issued').length;
+
+      statTotal.textContent = total;
+      statAvailable.textContent = available;
+      statIssued.textContent = issued;
+    }
+
+    // ========================================================================
+    // 2. CREATE or UPDATE Form Submission (POST or PUT /api/devices/:id)
+    // ========================================================================
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      const deviceId = deviceIdInput.value;
+      const isEditing = Boolean(deviceId);
+
+      const payload = {
+        deviceName: deviceNameInput.value.trim(),
+        assetTag: assetTagInput.value.trim(),
+        category: categoryInput.value,
+        studentRollNo: studentRollInput.value.trim() || 'None',
+        status: statusInput.value
+      };
+
+      // Automatic sanity check: if status is Available, ensure roll number is None
+      if (payload.status === 'Available' && payload.studentRollNo !== 'None' && !deviceId) {
+        payload.studentRollNo = 'None';
+      }
+
+      submitBtn.disabled = true;
+      btnText.textContent = isEditing ? 'Updating...' : 'Registering...';
+
+      try {
+        const url = isEditing ? `${API_BASE}/${deviceId}` : API_BASE;
+        const method = isEditing ? 'PUT' : 'POST';
+
+        const res = await fetch(url, {
+          method: method,
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+
+        const data = await res.json();
+
+        if (res.ok && data.success) {
+          showToast(isEditing ? 'Equipment updated successfully!' : 'Equipment registered in DeviceVault!');
+          resetForm();
+          fetchDevices();
+        } else {
+          showToast(data.message || 'Operation failed.', 'error');
+        }
+      } catch (err) {
+        console.error('Error submitting form:', err);
+        showToast('Network error while saving record.', 'error');
+      } finally {
+        submitBtn.disabled = false;
+        btnText.textContent = isEditing ? 'Update Equipment' : 'Add to Inventory';
+      }
+    });
+
+    // ========================================================================
+    // 3. EDIT RECORD (Populates Left Form for PUT update)
+    // ========================================================================
+    function editDevice(id) {
+      const item = devicesCache.find(d => d._id === id);
+      if (!item) return;
+
+      deviceIdInput.value = item._id;
+      deviceNameInput.value = item.deviceName || item.bookTitle || '';
+      assetTagInput.value = item.assetTag || item.author || '';
+      categoryInput.value = item.category || item.genre || 'Microcontrollers & IoT';
+      studentRollInput.value = item.studentRollNo || 'None';
+      statusInput.value = item.status || 'Available';
+
+      // UI switches to edit mode
+      formTitle.innerHTML = '<span>✏️</span> Update Equipment';
+      formSubtitle.textContent = `Editing record ID: ${item._id}`;
+      btnText.textContent = 'Update Equipment';
+      cancelEditBtn.style.display = 'inline-flex';
+
+      window.scrollTo({ top: form.offsetTop - 80, behavior: 'smooth' });
+    }
+
+    cancelEditBtn.addEventListener('click', resetForm);
+
+    function resetForm() {
+      form.reset();
+      deviceIdInput.value = '';
+      studentRollInput.value = 'None';
+      statusInput.value = 'Available';
+      formTitle.innerHTML = '<span>➕</span> Register Equipment';
+      formSubtitle.textContent = 'Add new hardware to the central university inventory';
+      btnText.textContent = 'Add to Inventory';
+      cancelEditBtn.style.display = 'none';
+    }
+
+    // ========================================================================
+    // 4. QUICK ISSUE & RETURN (PUT /api/devices/:id)
+    // ========================================================================
+    function openIssueModal(id, title) {
+      modalDeviceId.value = id;
+      modalDeviceDesc.textContent = `Assigning hardware: "${title}"`;
+      modalRollInput.value = '';
+      issueModal.classList.add('active');
+      modalRollInput.focus();
+    }
+
+    function closeIssueModal() {
+      issueModal.classList.remove('active');
+      modalDeviceId.value = '';
+      modalRollInput.value = '';
+    }
+
+    async function submitQuickIssue() {
+      const id = modalDeviceId.value;
+      const rollNo = modalRollInput.value.trim();
+
+      if (!rollNo || rollNo.toLowerCase() === 'none') {
+        showToast('Please enter a valid student roll number.', 'error');
+        modalRollInput.focus();
+        return;
+      }
+
+      try {
+        const res = await fetch(`${API_BASE}/${id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            status: 'Issued',
+            studentRollNo: rollNo
+          })
+        });
+
+        const data = await res.json();
+        if (res.ok && data.success) {
+          showToast(`Successfully issued to student Roll No: ${rollNo}`);
+          closeIssueModal();
+          fetchDevices();
+        } else {
+          showToast(data.message || 'Failed to issue equipment.', 'error');
+        }
+      } catch (err) {
+        showToast('Network error while issuing equipment.', 'error');
+      }
+    }
+
+    async function returnDevice(id) {
+      if (!confirm('Confirm return of this equipment back to lab inventory?')) {
+        return;
+      }
+
+      try {
+        const res = await fetch(`${API_BASE}/${id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            status: 'Available',
+            studentRollNo: 'None'
+          })
+        });
+
+        const data = await res.json();
+        if (res.ok && data.success) {
+          showToast('Equipment returned to lab shelf.');
+          fetchDevices();
+        } else {
+          showToast(data.message || 'Failed to return equipment.', 'error');
+        }
+      } catch (err) {
+        showToast('Network error while returning equipment.', 'error');
+      }
+    }
+
+    // ========================================================================
+    // 5. DELETE A RECORD (DELETE /api/devices/:id)
+    // ========================================================================
+    async function deleteDevice(id, title) {
+      if (!confirm(`Are you sure you want to permanently delete "${title}" from the inventory?`)) {
+        return;
+      }
+
+      try {
+        const res = await fetch(`${API_BASE}/${id}`, {
+          method: 'DELETE'
+        });
+
+        const data = await res.json();
+        if (res.ok && data.success) {
+          showToast(`Record removed from inventory.`);
+          // If we were editing this item, reset form
+          if (deviceIdInput.value === id) resetForm();
+          fetchDevices();
+        } else {
+          showToast(data.message || 'Failed to delete record.', 'error');
+        }
+      } catch (err) {
+        showToast('Network error while deleting record.', 'error');
+      }
+    }
+
+    // ========================================================================
+    // Quick Demo Seeder (Creates 4 realistic lab records for evaluation viva)
+    // ========================================================================
+    document.getElementById('seed-demo-btn').addEventListener('click', async () => {
+      const demoItems = [
+        {
+          deviceName: 'Raspberry Pi 4 Model B (4GB)',
+          assetTag: 'RP-LAB-042',
+          category: 'Microcontrollers & IoT',
+          studentRollNo: '21BCSE104',
+          status: 'Issued'
+        },
+        {
+          deviceName: 'Rigol DS1054Z Digital Oscilloscope',
+          assetTag: 'RIGOL-EE-105',
+          category: 'Testing & Instruments',
+          studentRollNo: 'None',
+          status: 'Available'
+        },
+        {
+          deviceName: 'Meta Quest 2 VR Headset',
+          assetTag: 'VR-LAB-019',
+          category: 'AI & Compute Gear',
+          studentRollNo: '21BCSE189',
+          status: 'Issued'
+        },
+        {
+          deviceName: 'Arduino Uno Rev3 Starter Kit',
+          assetTag: 'ARD-KIT-007',
+          category: 'Microcontrollers & IoT',
+          studentRollNo: 'None',
+          status: 'Available'
+        }
+      ];
+
+      showToast('Seeding sample lab items...', 'info');
+      let createdCount = 0;
+
+      for (const item of demoItems) {
+        try {
+          const res = await fetch(API_BASE, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(item)
+          });
+          if (res.ok) createdCount++;
+        } catch (e) {
+          console.error(e);
+        }
+      }
+
+      showToast(`Added ${createdCount} sample hardware records to DeviceVault!`);
+      fetchDevices();
+    });
+
+    // Event Listeners for Filters, Search & Refresh
+    searchInput.addEventListener('input', renderCatalog);
+    filterStatus.addEventListener('change', renderCatalog);
+    filterCategory.addEventListener('change', renderCatalog);
+    document.getElementById('refresh-btn').addEventListener('click', () => {
+      fetchDevices();
+      showToast('Inventory refreshed from MongoDB Atlas.');
+    });
+
+    // Helper to prevent XSS in table rendering
+    function escapeHTML(str) {
+      if (!str) return '';
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    }
+
+    // Initialize on page load
+    document.addEventListener('DOMContentLoaded', fetchDevices);
+  </script>
+</body>
+</html>
